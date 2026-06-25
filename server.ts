@@ -1131,8 +1131,10 @@ app.put("/api/notifications/:id/read", async (req, res) => {
 
 // Serve UI Client
 async function startServer() {
-  // Initialize MongoDB connection before starting
-  await initMongoDB();
+  // Initialize MongoDB connection in the background to prevent startup blocking or timeouts in hosted environments
+  initMongoDB().catch((err) => {
+    console.error("Error during background MongoDB initialization:", err);
+  });
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -1149,7 +1151,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
