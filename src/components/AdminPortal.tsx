@@ -272,13 +272,12 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   // Auto-Save Settings States & Handler
   const [settingsSavingStatus, setSettingsSavingStatus] = useState<"Saved" | "Saving..." | "Error saving">("Saved");
 
-  const handleAutoSaveSettings = async (field: string, value: string) => {
+  const handleAutoSaveSettings = async (field: string, value: any) => {
     setSettingsSavingStatus("Saving...");
     try {
       const payload = {
-        storeName: field === "storeName" ? value : (settings?.storeName || ""),
-        storeAddress: field === "storeAddress" ? value : (settings?.storeAddress || ""),
-        gstNumber: field === "gstNumber" ? value : (settings?.gstNumber || ""),
+        ...settings,
+        [field]: value
       };
 
       const res = await fetch("/api/settings", {
@@ -293,7 +292,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
           if (!prev) return null;
           return {
             ...prev,
-            settings: payload
+            settings: payload as any
           };
         });
       } else {
@@ -567,17 +566,128 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   const activeCustomersCount = customers.length;
   const activeStaffCount = users.length;
 
+  // Dynamic theme configurations mapping (Telegram Style)
+  const themeStyles = (() => {
+    switch (settings?.theme) {
+      case "telegram":
+        return {
+          bgClass: "bg-slate-900/90 text-slate-100",
+          overlayClass: "bg-gradient-to-br from-[#182533]/98 via-[#0f1721]/98 to-[#1e344e]/98 backdrop-blur-md",
+          panelClass: "bg-[#17212b]/90 border-[#202b36] text-[#f5f5f5] shadow-xl shadow-slate-950/20",
+          sidebarClass: "bg-[#17212b] border-[#202b36] text-[#f5f5f5]",
+          accentColor: "text-[#4ca2ff]",
+          accentBg: "bg-[#2b5278] hover:bg-[#36638f] text-white shadow-lg shadow-blue-500/10",
+          accentBorder: "border-[#2b5278]/40",
+          activeBtnClass: "bg-[#2b5278] text-white shadow-lg shadow-blue-500/15 border-l-4 border-[#4ca2ff]",
+          hoverBtnClass: "hover:bg-[#202b36] hover:text-white text-slate-400"
+        };
+      case "midnight":
+        return {
+          bgClass: "bg-black/90 text-slate-100",
+          overlayClass: "bg-gradient-to-br from-[#010103]/98 via-[#040612]/98 to-[#0a0a1a]/98 backdrop-blur-md",
+          panelClass: "bg-[#0b0c16]/90 border-blue-950/80 text-white shadow-xl shadow-black",
+          sidebarClass: "bg-[#03040b] border-blue-950 text-white",
+          accentColor: "text-cyan-400",
+          accentBg: "bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-800/50 shadow-lg shadow-cyan-500/10",
+          accentBorder: "border-blue-950",
+          activeBtnClass: "bg-cyan-500/15 text-cyan-300 border-l-4 border-cyan-400",
+          hoverBtnClass: "hover:bg-slate-900/80 hover:text-white text-slate-400"
+        };
+      case "emerald":
+        return {
+          bgClass: "bg-slate-950/90 text-slate-100",
+          overlayClass: "bg-gradient-to-b from-[#04100b]/98 to-[#091e14]/98 backdrop-blur-md",
+          panelClass: "bg-[#081e14]/90 border-emerald-900/40 text-[#ecfdf5] shadow-xl shadow-black/20",
+          sidebarClass: "bg-[#05130d] border-emerald-950 text-[#ecfdf5]",
+          accentColor: "text-emerald-400",
+          accentBg: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10",
+          accentBorder: "border-emerald-800/40",
+          activeBtnClass: "bg-emerald-500/15 text-emerald-300 border-l-4 border-emerald-500",
+          hoverBtnClass: "hover:bg-[#071911] hover:text-[#ecfdf5] text-slate-400"
+        };
+      case "amber":
+        return {
+          bgClass: "bg-slate-950/90 text-slate-100",
+          overlayClass: "bg-gradient-to-b from-[#120a02]/98 to-[#241504]/98 backdrop-blur-md",
+          panelClass: "bg-[#1d1206]/90 border-amber-900/40 text-[#fef3c7] shadow-xl shadow-black/20",
+          sidebarClass: "bg-[#110a03] border-amber-950 text-[#fef3c7]",
+          accentColor: "text-amber-400",
+          accentBg: "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-500/10",
+          accentBorder: "border-amber-800/40",
+          activeBtnClass: "bg-amber-500/15 text-amber-300 border-l-4 border-amber-500",
+          hoverBtnClass: "hover:bg-[#150d04] hover:text-[#fef3c7] text-slate-400"
+        };
+      case "retro":
+        return {
+          bgClass: "bg-slate-950 text-slate-100",
+          overlayClass: "bg-gradient-to-br from-[#0c051d]/98 via-[#02010d]/98 to-[#1b0016]/98 backdrop-blur-md",
+          panelClass: "bg-[#15092a]/80 border-pink-500/30 text-slate-200 shadow-[0_0_15px_rgba(236,72,153,0.15)]",
+          sidebarClass: "bg-[#0a0318]/95 border-purple-500/20 text-slate-200",
+          accentColor: "text-pink-400",
+          accentBg: "bg-pink-600 hover:bg-pink-500 text-white shadow-[0_0_10px_rgba(236,72,153,0.3)]",
+          accentBorder: "border-pink-500/20",
+          activeBtnClass: "bg-purple-900/40 text-pink-400 border-l-4 border-pink-500",
+          hoverBtnClass: "hover:bg-purple-950/50 hover:text-white text-slate-400"
+        };
+      case "light":
+        return {
+          bgClass: "bg-slate-50 text-slate-800",
+          overlayClass: "bg-slate-100/60 backdrop-blur-sm",
+          panelClass: "bg-white border-slate-200 text-slate-800 shadow-sm",
+          sidebarClass: "bg-slate-100 border-slate-200 text-slate-800",
+          accentColor: "text-emerald-600",
+          accentBg: "bg-emerald-600 hover:bg-emerald-700 text-white",
+          accentBorder: "border-slate-200",
+          activeBtnClass: "bg-emerald-50 text-emerald-700 border-l-4 border-emerald-600 shadow-sm",
+          hoverBtnClass: "hover:bg-slate-200/50 hover:text-slate-700 text-slate-500"
+        };
+      case "dark":
+      default:
+        return {
+          bgClass: "bg-slate-950/90 text-slate-100",
+          overlayClass: "bg-slate-950/85 backdrop-blur-sm",
+          panelClass: "bg-slate-950/60 border-slate-800/80 text-slate-100",
+          sidebarClass: "bg-slate-950 border-slate-800 text-slate-100",
+          accentColor: "text-emerald-400",
+          accentBg: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10",
+          accentBorder: "border-slate-800/80",
+          activeBtnClass: "bg-slate-900 text-emerald-400 border-l-4 border-emerald-500",
+          hoverBtnClass: "hover:bg-slate-900 hover:text-white text-slate-400"
+        };
+    }
+  })();
+
+  const fontFamilyClass = (() => {
+    switch (settings?.fontFamily) {
+      case "display": return "font-display";
+      case "mono": return "font-mono";
+      case "serif": return "font-serif";
+      case "sans":
+      default: return "font-sans";
+    }
+  })();
+
+  const fontSizeClass = (() => {
+    switch (settings?.fontSize) {
+      case "small": return "text-xs";
+      case "large": return "text-base";
+      case "xlarge": return "text-lg";
+      case "medium":
+      default: return "text-sm";
+    }
+  })();
+
   return (
     <div 
-      className="min-h-screen bg-cover bg-center bg-no-repeat text-slate-100 flex flex-col md:flex-row relative overflow-x-hidden" 
+      className={`min-h-screen ${fontFamilyClass} ${fontSizeClass} bg-cover bg-center bg-no-repeat flex flex-col md:flex-row relative overflow-x-hidden ${themeStyles.bgClass}`} 
       id="admin_portal_root"
       style={{ backgroundImage: `url(${bgImage})` }}
     >
       {/* Dynamic Ambient Background Overlay */}
-      <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm pointer-events-none z-0"></div>
+      <div className={`absolute inset-0 pointer-events-none z-0 ${themeStyles.overlayClass}`}></div>
       
       {/* SIDEBAR NAVIGATION */}
-      <aside className="w-full md:w-64 bg-slate-950/90 border-r border-slate-800/80 flex flex-col justify-between shrink-0 relative z-10 backdrop-blur-md">
+      <aside className={`w-full md:w-64 border-r flex flex-col justify-between shrink-0 relative z-10 backdrop-blur-md ${themeStyles.sidebarClass}`}>
         <div>
           {/* Internal Title Header */}
           <div className="p-6 border-b border-slate-800/80 flex items-center gap-3">
@@ -607,8 +717,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("dashboard")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "dashboard"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -619,8 +729,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("my_account")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "my_account"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <UserSquare2 className="w-4 h-4" />
@@ -631,8 +741,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("pos")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "pos"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <ShoppingCart className="w-4 h-4" />
@@ -643,8 +753,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("products")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "products"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Package className="w-4 h-4" />
@@ -655,8 +765,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("purchase")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "purchase"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <FileText className="w-4 h-4" />
@@ -667,8 +777,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("stock")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "stock"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Boxes className="w-4 h-4" />
@@ -679,8 +789,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("categories")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "categories"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Tags className="w-4 h-4" />
@@ -691,8 +801,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("suppliers")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "suppliers"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Truck className="w-4 h-4" />
@@ -703,8 +813,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("customers")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "customers"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Users className="w-4 h-4" />
@@ -715,8 +825,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
               onClick={() => setActiveTab("bills")}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                 activeTab === "bills"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? themeStyles.activeBtnClass
+                  : themeStyles.hoverBtnClass
               }`}
             >
               <Receipt className="w-4 h-4" />
@@ -728,8 +838,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
                 onClick={() => setActiveTab("users")}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                   activeTab === "users"
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                    ? themeStyles.activeBtnClass
+                    : themeStyles.hoverBtnClass
                 }`}
               >
                 <UserSquare2 className="w-4 h-4" />
@@ -742,8 +852,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
                 onClick={() => setActiveTab("settings")}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
                   activeTab === "settings"
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                    ? themeStyles.activeBtnClass
+                    : themeStyles.hoverBtnClass
                 }`}
               >
                 <SettingsIcon className="w-4 h-4" />
@@ -2020,77 +2130,400 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
           </div>
         )}
 
-        {/* CORPORATE STORE SETTINGS PANEL (Admin Only) */}
+        {/* CORPORATE STORE & PREMIUM TELEGRAM-LIKE SETTINGS (Admin Only) */}
         {activeTab === "settings" && (
-          <div className="bg-slate-950/60 p-6 rounded-2xl border border-slate-800/80 space-y-6">
-            <div className="border-b border-slate-800 pb-4 flex justify-between items-center flex-wrap gap-4">
-              <div>
-                <h3 className="font-display font-bold text-lg text-white">SK Corporate Brand Settings</h3>
-                <p className="text-xs text-slate-400">Update in-store credentials, localized legal addresses, and corporate GST registration IDs.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* LEFT COLUMN: Profile Header Card & Chat Settings Preview */}
+            <div className="space-y-6 lg:col-span-1">
+              
+              {/* Telegram-style User Profile Card */}
+              <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} overflow-hidden relative`}>
+                {/* Background Ambient Glow */}
+                <div className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-blue-500/10 blur-xl pointer-events-none"></div>
+                
+                <div className="flex flex-col items-center text-center space-y-4">
+                  {/* Big Initials Avatar */}
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-display font-black text-2xl flex items-center justify-center shadow-lg border-2 border-slate-700/50">
+                      {currentUser.fullname.substring(0, 2).toUpperCase()}
+                    </div>
+                    {/* Active Online Indicator */}
+                    <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-display font-bold text-base text-white">{currentUser.fullname}</h3>
+                    <p className="text-[11px] font-mono text-blue-400 mt-0.5">{currentUser.email}</p>
+                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-mono text-blue-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Role: {currentUser.role}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-slate-800/60 pt-4 space-y-3 text-[11px] text-slate-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Account status</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" /> Verified
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Workspace host</span>
+                    <span className="font-mono text-slate-400">Local DB Session</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Security key</span>
+                    <span className="font-mono text-slate-400">SHA-256 (Locked)</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Status Indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-medium">
-                {settingsSavingStatus === "Saving..." && (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                    <span className="text-amber-400">Saving changes...</span>
-                  </>
-                )}
-                {settingsSavingStatus === "Saved" && (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-emerald-400">All changes saved</span>
-                  </>
-                )}
-                {settingsSavingStatus === "Error saving" && (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    <span className="text-rose-400">Error saving changes</span>
-                  </>
-                )}
+              {/* Chat settings preview */}
+              <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} space-y-4`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">Live Chat Preview</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-mono">Appearance</span>
+                </div>
+
+                {/* Message preview block */}
+                <div className="space-y-3 bg-slate-950/80 p-4 rounded-xl border border-slate-800/50 font-sans">
+                  <div className="flex gap-2 items-start">
+                    <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-[10px] text-white font-bold shrink-0">S</div>
+                    <div className="bg-slate-900 border border-slate-800 text-white p-2.5 rounded-2xl rounded-tl-none max-w-[85%] shadow-md">
+                      <p className="font-semibold text-[10px] text-emerald-400">{currentUser.fullname}</p>
+                      <p className={`${fontSizeClass} ${fontFamilyClass} mt-0.5 leading-relaxed`}>
+                        Selected theme: <span className="font-mono text-blue-300">"{settings.theme || "dark"}"</span>. Font family is <span className="font-mono text-blue-300">"{settings.fontFamily || "sans"}"</span>.
+                      </p>
+                      <span className="text-[8px] text-slate-500 block text-right mt-1">09:41 AM</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 items-start justify-end">
+                    <div className="bg-blue-600/90 text-white p-2.5 rounded-2xl rounded-tr-none max-w-[85%] shadow-md">
+                      <p className={`${fontSizeClass} ${fontFamilyClass} leading-relaxed`}>
+                        This looks exactly like Telegram premium! Absolute perfection. 🚀
+                      </p>
+                      <span className="text-[8px] text-blue-200 block text-right mt-1">09:42 AM</span>
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold shrink-0">M</div>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+                  The billing layouts, invoice logs, sidebars, and tables dynamically morph according to this visual preset!
+                </p>
               </div>
+
             </div>
 
-            <div className="space-y-4 max-w-xl text-xs">
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Supermarket Retail Trade Name</label>
-                <input
-                  type="text"
-                  name="storeName"
-                  required
-                  defaultValue={settings.storeName}
-                  onChange={(e) => handleAutoSaveSettings("storeName", e.target.value)}
-                  placeholder="e.g. SK Supermarket"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
-                />
+            {/* RIGHT COLUMN: Settings Sections (Appearance & Corporate Details) */}
+            <div className="space-y-6 lg:col-span-2">
+              
+              {/* APPEARANCE CUSTOMIZER (Telegram Style) */}
+              <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} space-y-6`}>
+                <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-display font-bold text-sm text-white">Appearance Settings</h3>
+                    <p className="text-xs text-slate-400">Personalize themes, custom displays, text size scaling, and element curvatures.</p>
+                  </div>
+                  
+                  {/* Save Status Indicator */}
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] font-medium">
+                    {settingsSavingStatus === "Saving..." && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="text-amber-400 font-mono">Syncing...</span>
+                      </>
+                    )}
+                    {settingsSavingStatus === "Saved" && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="text-emerald-400 font-mono">Synced</span>
+                      </>
+                    )}
+                    {settingsSavingStatus === "Error saving" && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        <span className="text-rose-400 font-mono">Sync Error</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Theme Selector Grid */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Theme Presets</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    
+                    {/* Telegram Classic */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "telegram")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "telegram"
+                          ? "bg-blue-600/10 border-blue-500 text-white"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-[#2b5278] border border-blue-400 flex items-center justify-center text-white">
+                        {settings.theme === "telegram" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Telegram Classic</span>
+                    </button>
+
+                    {/* Midnight Black */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "midnight")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "midnight"
+                          ? "bg-cyan-500/10 border-cyan-500 text-white"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-black border border-cyan-500 flex items-center justify-center text-cyan-400">
+                        {settings.theme === "midnight" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Midnight Neon</span>
+                    </button>
+
+                    {/* Emerald Forest */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "emerald")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "emerald"
+                          ? "bg-emerald-600/10 border-emerald-500 text-white"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-[#05130d] border border-emerald-500 flex items-center justify-center text-emerald-400">
+                        {settings.theme === "emerald" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Emerald Moss</span>
+                    </button>
+
+                    {/* Golden Amber */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "amber")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "amber"
+                          ? "bg-amber-600/10 border-amber-500 text-white"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-[#140c04] border border-amber-500 flex items-center justify-center text-amber-400">
+                        {settings.theme === "amber" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Golden Amber</span>
+                    </button>
+
+                    {/* Retro Vaporwave */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "retro")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "retro"
+                          ? "bg-pink-600/10 border-pink-500 text-white"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-[#12072b] border border-pink-500 flex items-center justify-center text-pink-400">
+                        {settings.theme === "retro" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Retro Cyber</span>
+                    </button>
+
+                    {/* Light Day */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "light")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "light"
+                          ? "bg-slate-100 border-slate-400 text-slate-800 shadow-inner"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-white border border-slate-300 flex items-center justify-center text-slate-700">
+                        {settings.theme === "light" && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Light Day</span>
+                    </button>
+
+                    {/* Slate Dark */}
+                    <button
+                      onClick={() => handleAutoSaveSettings("theme", "dark")}
+                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
+                        settings.theme === "dark" || !settings.theme
+                          ? "bg-slate-800/60 border-slate-500 text-white shadow-inner"
+                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-slate-950 border border-slate-600 flex items-center justify-center text-slate-300">
+                        {(settings.theme === "dark" || !settings.theme) && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className="text-[11px] font-semibold">Slate Dark</span>
+                    </button>
+                    
+                  </div>
+                </div>
+
+                {/* Font Family Selector */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Font Family</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    
+                    <button
+                      onClick={() => handleAutoSaveSettings("fontFamily", "sans")}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                        settings.fontFamily === "sans" || !settings.fontFamily
+                          ? "bg-blue-600/10 border-blue-500 text-white font-sans"
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 font-sans"
+                      }`}
+                    >
+                      <p className="text-sm font-bold">Inter</p>
+                      <span className="text-[9px] text-slate-500">Corporate Sans</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAutoSaveSettings("fontFamily", "display")}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                        settings.fontFamily === "display"
+                          ? "bg-blue-600/10 border-blue-500 text-white font-display"
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 font-display"
+                      }`}
+                    >
+                      <p className="text-sm font-bold">Outfit</p>
+                      <span className="text-[9px] text-slate-500">Display Bold</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAutoSaveSettings("fontFamily", "mono")}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                        settings.fontFamily === "mono"
+                          ? "bg-blue-600/10 border-blue-500 text-white font-mono"
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 font-mono"
+                      }`}
+                    >
+                      <p className="text-sm font-bold">JetBrains</p>
+                      <span className="text-[9px] text-slate-500">Tech Mono</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleAutoSaveSettings("fontFamily", "serif")}
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                        settings.fontFamily === "serif"
+                          ? "bg-blue-600/10 border-blue-500 text-white font-serif"
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 font-serif"
+                      }`}
+                    >
+                      <p className="text-sm font-bold font-serif">Georgia</p>
+                      <span className="text-[9px] text-slate-500">Classic Serif</span>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Font Size Selector */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">
+                    <span>Text Size Scaling</span>
+                    <span className="text-blue-400 lowercase font-sans font-bold capitalize">
+                      {settings.fontSize || "medium"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {["small", "medium", "large", "xlarge"].map((sz) => (
+                      <button
+                        key={sz}
+                        onClick={() => handleAutoSaveSettings("fontSize", sz)}
+                        className={`py-2 px-3 rounded-lg border text-[11px] font-medium capitalize transition-all cursor-pointer ${
+                          (settings.fontSize === sz || (!settings.fontSize && sz === "medium"))
+                            ? "bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/10"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400"
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Corner Roundness Selector */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">
+                    <span>Corner Roundness</span>
+                    <span className="text-blue-400 font-sans font-bold capitalize">
+                      {settings.borderRadius || "large"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {["none", "small", "medium", "large", "full"].map((rd) => (
+                      <button
+                        key={rd}
+                        onClick={() => handleAutoSaveSettings("borderRadius", rd)}
+                        className={`py-2 px-2 rounded-lg border text-[10px] font-medium capitalize transition-all cursor-pointer ${
+                          (settings.borderRadius === rd || (!settings.borderRadius && rd === "large"))
+                            ? "bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/10"
+                            : "bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-400"
+                        }`}
+                      >
+                        {rd}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Local Address (Thermal Print Receipt Footer)</label>
-                <textarea
-                  name="storeAddress"
-                  required
-                  rows={3}
-                  defaultValue={settings.storeAddress}
-                  onChange={(e) => handleAutoSaveSettings("storeAddress", e.target.value)}
-                  placeholder="Enter complete store address..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
-                ></textarea>
+              {/* CORPORATE DETAILS SETTINGS CARD */}
+              <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} space-y-6`}>
+                <div>
+                  <h3 className="font-display font-bold text-sm text-white">Supermarket Corporate Credentials</h3>
+                  <p className="text-xs text-slate-400">Update localized company settings for billing, receipt footers, and official invoice records.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Supermarket Trade Name</label>
+                    <input
+                      type="text"
+                      name="storeName"
+                      required
+                      defaultValue={settings.storeName}
+                      onChange={(e) => handleAutoSaveSettings("storeName", e.target.value)}
+                      placeholder="e.g. SK Supermarket"
+                      className="w-full bg-slate-900 border border-slate-850 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Official GST Registration ID</label>
+                    <input
+                      type="text"
+                      name="gstNumber"
+                      required
+                      defaultValue={settings.gstNumber}
+                      onChange={(e) => handleAutoSaveSettings("gstNumber", e.target.value)}
+                      placeholder="e.g. 33AAAAA1111A1Z1"
+                      className="w-full bg-slate-900 border border-slate-850 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 transition-all font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Official Business Address</label>
+                    <textarea
+                      name="storeAddress"
+                      required
+                      rows={3}
+                      defaultValue={settings.storeAddress}
+                      onChange={(e) => handleAutoSaveSettings("storeAddress", e.target.value)}
+                      placeholder="Complete physical address for receipts..."
+                      className="w-full bg-slate-900 border border-slate-850 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 transition-all resize-none leading-relaxed"
+                    ></textarea>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-mono font-bold text-slate-500 uppercase">Official Business GSTIN</label>
-                <input
-                  type="text"
-                  name="gstNumber"
-                  required
-                  defaultValue={settings.gstNumber}
-                  onChange={(e) => handleAutoSaveSettings("gstNumber", e.target.value)}
-                  placeholder="e.g. 33AABCS1234F1Z1"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500 transition-all font-mono"
-                />
-              </div>
             </div>
           </div>
         )}

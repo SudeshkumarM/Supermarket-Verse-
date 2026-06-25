@@ -106,8 +106,13 @@ export interface Settings {
   storeAddress: string;
   gstNumber: string;
   logoUrl?: string;
-  theme: "light" | "dark";
+  theme: "light" | "dark" | "telegram" | "midnight" | "emerald" | "amber" | "retro";
   language: string;
+  fontSize?: "small" | "medium" | "large" | "xlarge";
+  fontFamily?: "sans" | "display" | "mono" | "serif";
+  telegramCompactMode?: boolean;
+  accentColor?: string;
+  borderRadius?: "none" | "small" | "medium" | "large" | "full";
 }
 
 export interface DBState {
