@@ -7,7 +7,14 @@ import {
   HelpCircle, UserPlus, Lock, Shield, Sparkles, BookOpen, User
 } from "lucide-react";
 import { Product, Category, Settings, User as UserType } from "../types";
-const bgImage = "/src/assets/images/supermarket_bg_1782294690312.jpg";
+const tabBackgrounds: Record<string, string> = {
+  home: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1920&auto=format&fit=crop",
+  about: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop",
+  contact: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1920&auto=format&fit=crop",
+  help: "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?q=80&w=1920&auto=format&fit=crop",
+  register: "https://images.unsplash.com/photo-1556740758-90de374c12ad?q=80&w=1920&auto=format&fit=crop",
+  login: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1920&auto=format&fit=crop"
+};
 
 interface PublicWebsiteProps {
   products: Product[];
@@ -191,10 +198,12 @@ export default function PublicWebsite({
     setLoginPassword(passVal);
   };
 
+  const currentBg = tabBackgrounds[activeTab] || tabBackgrounds.home;
+
   return (
     <div 
-      className="min-h-screen flex flex-col relative text-slate-100 bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: `url(${bgImage})` }}
+      className="min-h-screen flex flex-col relative text-slate-100 bg-cover bg-center bg-no-repeat transition-all duration-700 ease-in-out"
+      style={{ backgroundImage: `url(${currentBg})` }}
       id="public_root"
     >
       {/* Dark overlay for ambient background to keep text highly legible (high contrast) */}

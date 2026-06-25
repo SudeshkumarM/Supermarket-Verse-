@@ -15,7 +15,20 @@ interface AdminPortalProps {
   appSettings: Settings;
 }
 
-const bgImage = "/src/assets/images/supermarket_bg_1782294690312.jpg";
+const adminTabBackgrounds: Record<string, string> = {
+  dashboard: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=1920&auto=format&fit=crop",
+  my_account: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1920&auto=format&fit=crop",
+  pos: "https://images.unsplash.com/photo-1556742031-c6961e8560b0?q=80&w=1920&auto=format&fit=crop",
+  products: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1920&auto=format&fit=crop",
+  purchase: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1920&auto=format&fit=crop",
+  stock: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1920&auto=format&fit=crop",
+  categories: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=1920&auto=format&fit=crop",
+  suppliers: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=1920&auto=format&fit=crop",
+  customers: "https://images.unsplash.com/photo-1556745753-b2904692b3cd?q=80&w=1920&auto=format&fit=crop",
+  bills: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=1920&auto=format&fit=crop",
+  users: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1920&auto=format&fit=crop",
+  settings: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920&auto=format&fit=crop"
+};
 
 export default function AdminPortal({ currentUser, onLogout, appSettings }: AdminPortalProps) {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -677,11 +690,13 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
     }
   })();
 
+  const currentAdminBg = adminTabBackgrounds[activeTab] || adminTabBackgrounds.dashboard;
+
   return (
     <div 
-      className={`min-h-screen ${fontFamilyClass} ${fontSizeClass} bg-cover bg-center bg-no-repeat flex flex-col md:flex-row relative overflow-x-hidden ${themeStyles.bgClass}`} 
+      className={`min-h-screen ${fontFamilyClass} ${fontSizeClass} bg-cover bg-center bg-no-repeat flex flex-col md:flex-row relative overflow-x-hidden transition-all duration-700 ease-in-out ${themeStyles.bgClass}`} 
       id="admin_portal_root"
-      style={{ backgroundImage: `url(${bgImage})` }}
+      style={{ backgroundImage: `url(${currentAdminBg})` }}
     >
       {/* Dynamic Ambient Background Overlay */}
       <div className={`absolute inset-0 pointer-events-none z-0 ${themeStyles.overlayClass}`}></div>

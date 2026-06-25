@@ -51,7 +51,7 @@ export default function LoginPortal({ onLoginSuccess, onBackToPublic, storeName 
   return (
     <div 
       className="min-h-screen flex flex-col justify-center items-center p-4 relative overflow-hidden bg-cover bg-center bg-no-repeat" 
-      style={{ backgroundImage: `url('/src/assets/images/supermarket_bg_1782294690312.jpg')` }}
+      style={{ backgroundImage: `url('https://images.unsplash.com/photo-1556742044-3c52d6e88c62?q=80&w=1920&auto=format&fit=crop')` }}
       id="login_portal_root"
     >
       {/* Dark overlay for ambient background to keep text highly legible (high contrast) */}
