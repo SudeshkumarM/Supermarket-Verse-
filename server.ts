@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { MongoClient, Db } from "mongodb";
 
 
 const app = express();
@@ -274,107 +273,8 @@ function saveDB(data: typeof defaultDb) {
   }
 }
 
-// MongoDB Connection Setup
-let mongoClient: MongoClient | null = null;
-let mongoDb: Db | null = null;
-let useMongo = false;
-
-async function initMongoDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri || uri.includes("username:password") || uri.includes("<username>") || uri.includes("your-password") || uri.includes("cluster.mongodb.net/supermarket")) {
-    console.warn("MONGODB_URI is not set, contains default placeholders, or is unconfigured. Falling back to local JSON file storage (db.json).");
-    useMongo = false;
-    return false;
-  }
-  try {
-    mongoClient = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 4000,
-      connectTimeoutMS: 4000
-    });
-    await mongoClient.connect();
-    mongoDb = mongoClient.db();
-    console.log("Connected to MongoDB successfully!");
-    useMongo = true;
-    
-    // Seed MongoDB collections if they are empty
-    await seedMongoIfEmpty();
-    return true;
-  } catch (error) {
-    console.error("Failed to connect to MongoDB, falling back to local JSON storage:", error);
-    useMongo = false;
-    return false;
-  }
-}
-
-async function seedMongoIfEmpty() {
-  if (!mongoDb) return;
-  try {
-    const collections = ["users", "categories", "suppliers", "products", "customers", "purchases", "bills", "logs", "notifications"];
-    for (const colName of collections) {
-      const count = await mongoDb.collection(colName).countDocuments();
-      if (count === 0) {
-        console.log(`Seeding MongoDB collection: ${colName}`);
-        const data = (defaultDb as any)[colName];
-        if (data && data.length > 0) {
-          await mongoDb.collection(colName).insertMany(JSON.parse(JSON.stringify(data)));
-        }
-      }
-    }
-
-    const settingsCount = await mongoDb.collection("settings").countDocuments();
-    if (settingsCount === 0) {
-      await mongoDb.collection("settings").insertOne(JSON.parse(JSON.stringify(defaultDb.settings)));
-    }
-  } catch (err) {
-    console.error("Error seeding MongoDB:", err);
-  }
-}
-
 async function getFullDB() {
-  if (useMongo && mongoDb) {
-    try {
-      const users = await mongoDb.collection("users").find({}).toArray();
-      const categories = await mongoDb.collection("categories").find({}).toArray();
-      const suppliers = await mongoDb.collection("suppliers").find({}).toArray();
-      const products = await mongoDb.collection("products").find({}).toArray();
-      const customers = await mongoDb.collection("customers").find({}).toArray();
-      const purchases = await mongoDb.collection("purchases").find({}).toArray();
-      const bills = await mongoDb.collection("bills").find({}).toArray();
-      const logs = await mongoDb.collection("logs").find({}).toArray();
-      const notifications = await mongoDb.collection("notifications").find({}).toArray();
-      
-      let settings: any = await mongoDb.collection("settings").findOne({});
-      if (!settings) {
-        settings = defaultDb.settings;
-      }
-
-      // Convert Mongo _id to avoid circular or weird structures, ensuring fully clean serializable objects
-      const cleanDocs = (arr: any[]) => arr.map(item => {
-        const { _id, ...rest } = item;
-        return rest;
-      });
-
-      const { _id: sId, ...cleanSettings } = settings as any;
-
-      return {
-        users: cleanDocs(users),
-        categories: cleanDocs(categories),
-        suppliers: cleanDocs(suppliers),
-        products: cleanDocs(products),
-        customers: cleanDocs(customers),
-        purchases: cleanDocs(purchases),
-        bills: cleanDocs(bills),
-        logs: cleanDocs(logs),
-        settings: cleanSettings,
-        notifications: cleanDocs(notifications)
-      };
-    } catch (e) {
-      console.error("MongoDB read error, falling back to local JSON DB:", e);
-      return loadDB();
-    }
-  } else {
-    return loadDB();
-  }
+  return loadDB();
 }
 
 // REST API Endpoints
@@ -387,22 +287,10 @@ app.get("/api/db", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   
-  let user;
-  if (useMongo && mongoDb) {
-    try {
-      user = await mongoDb.collection("users").findOne({
-        email: { $regex: new RegExp("^" + email + "$", "i") },
-        password: password
-      });
-    } catch (e) {
-      console.error("Mongo login error:", e);
-    }
-  } else {
-    const db = loadDB();
-    user = db.users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-  }
+  const db = loadDB();
+  const user = db.users.find(
+    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+  );
 
   if (user) {
     const logId = "log_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
@@ -416,17 +304,8 @@ app.post("/api/login", async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    if (useMongo && mongoDb) {
-      try {
-        await mongoDb.collection("logs").insertOne(newLog);
-      } catch (e) {
-        console.error("Mongo log insertion error:", e);
-      }
-    } else {
-      const db = loadDB();
-      db.logs.unshift(newLog);
-      saveDB(db);
-    }
+    db.logs.unshift(newLog);
+    saveDB(db);
 
     res.json({ success: true, user });
   } else {
@@ -474,22 +353,10 @@ app.get("/api/notifications", async (req, res) => {
 
 // PUT Settings
 app.put("/api/settings", async (req, res) => {
-  if (useMongo && mongoDb) {
-    try {
-      const settings = await mongoDb.collection("settings").findOne({});
-      const newSettings = { ...settings, ...req.body };
-      delete newSettings._id;
-      await mongoDb.collection("settings").updateOne({}, { $set: newSettings }, { upsert: true });
-      res.json(newSettings);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update settings" });
-    }
-  } else {
-    const db = loadDB();
-    db.settings = { ...db.settings, ...req.body };
-    saveDB(db);
-    res.json(db.settings);
-  }
+  const db = loadDB();
+  db.settings = { ...db.settings, ...req.body };
+  saveDB(db);
+  res.json(db.settings);
 });
 
 // CRUD Operations: PRODUCTS
@@ -499,38 +366,19 @@ app.post("/api/products", async (req, res) => {
     ...req.body
   };
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("products").insertOne(newProduct);
-      if (Number(newProduct.stockQty) <= Number(newProduct.lowStockThreshold)) {
-        const newNotif = {
-          id: "alert_stock_" + newProduct.id + "_" + Date.now(),
-          type: "warning",
-          title: "Low Stock Alert",
-          message: `Product: "${newProduct.name}" has only ${newProduct.stockQty} unit(s) remaining (threshold: ${newProduct.lowStockThreshold}).`,
-          date: new Date().toISOString(),
-          read: false
-        };
-        await mongoDb.collection("notifications").insertOne(newNotif);
-      }
-    } catch (e) {
-      console.error("Mongo product post error:", e);
-    }
-  } else {
-    const db = loadDB();
-    db.products.push(newProduct);
-    if (Number(newProduct.stockQty) <= Number(newProduct.lowStockThreshold)) {
-      db.notifications.unshift({
-        id: "alert_stock_" + newProduct.id + "_" + Date.now(),
-        type: "warning",
-        title: "Low Stock Alert",
-        message: `Product: "${newProduct.name}" has only ${newProduct.stockQty} unit(s) remaining (threshold: ${newProduct.lowStockThreshold}).`,
-        date: new Date().toISOString(),
-        read: false
-      });
-    }
-    saveDB(db);
+  const db = loadDB();
+  db.products.push(newProduct);
+  if (Number(newProduct.stockQty) <= Number(newProduct.lowStockThreshold)) {
+    db.notifications.unshift({
+      id: "alert_stock_" + newProduct.id + "_" + Date.now(),
+      type: "warning",
+      title: "Low Stock Alert",
+      message: `Product: "${newProduct.name}" has only ${newProduct.stockQty} unit(s) remaining (threshold: ${newProduct.lowStockThreshold}).`,
+      date: new Date().toISOString(),
+      read: false
+    });
   }
+  saveDB(db);
 
   res.status(201).json(newProduct);
 });
@@ -540,91 +388,44 @@ app.put("/api/products/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  if (useMongo && mongoDb) {
-    try {
-      const prod = await mongoDb.collection("products").findOne({ id });
-      if (prod) {
-        const updatedProduct = { ...prod, ...updateData };
-        await mongoDb.collection("products").updateOne({ id }, { $set: updateData });
-
-        if (Number(updatedProduct.stockQty) <= Number(updatedProduct.lowStockThreshold)) {
-          const prefix = "alert_stock_" + id;
-          const alreadyNotified = await mongoDb.collection("notifications").findOne({
-            id: { $regex: "^" + prefix },
-            read: false
-          });
-          if (!alreadyNotified) {
-            const newNotif = {
-              id: "alert_stock_" + id + "_" + Date.now(),
-              type: "warning",
-              title: "Low Stock Alert",
-              message: `Product: "${updatedProduct.name}" has only ${updatedProduct.stockQty} unit(s) remaining (threshold: ${updatedProduct.lowStockThreshold}).`,
-              date: new Date().toISOString(),
-              read: false
-            };
-            await mongoDb.collection("notifications").insertOne(newNotif);
-          }
-        }
-        res.json(updatedProduct);
-      } else {
-        res.status(404).json({ error: "Product not found" });
+  const db = loadDB();
+  const index = db.products.findIndex((p) => p.id === id);
+  if (index !== -1) {
+    db.products[index] = { ...db.products[index], ...updateData };
+    const prod = db.products[index];
+    if (Number(prod.stockQty) <= Number(prod.lowStockThreshold)) {
+      const alreadyNotified = db.notifications.some(
+        n => n.id.startsWith("alert_stock_" + prod.id) && !n.read
+      );
+      if (!alreadyNotified) {
+        db.notifications.unshift({
+          id: "alert_stock_" + prod.id + "_" + Date.now(),
+          type: "warning",
+          title: "Low Stock Alert",
+          message: `Product: "${prod.name}" has only ${prod.stockQty} unit(s) remaining (threshold: ${prod.lowStockThreshold}).`,
+          date: new Date().toISOString(),
+          read: false
+        });
       }
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update product" });
     }
+    saveDB(db);
+    res.json(db.products[index]);
   } else {
-    const db = loadDB();
-    const index = db.products.findIndex((p) => p.id === id);
-    if (index !== -1) {
-      db.products[index] = { ...db.products[index], ...updateData };
-      const prod = db.products[index];
-      if (Number(prod.stockQty) <= Number(prod.lowStockThreshold)) {
-        const alreadyNotified = db.notifications.some(
-          n => n.id.startsWith("alert_stock_" + prod.id) && !n.read
-        );
-        if (!alreadyNotified) {
-          db.notifications.unshift({
-            id: "alert_stock_" + prod.id + "_" + Date.now(),
-            type: "warning",
-            title: "Low Stock Alert",
-            message: `Product: "${prod.name}" has only ${prod.stockQty} unit(s) remaining (threshold: ${prod.lowStockThreshold}).`,
-            date: new Date().toISOString(),
-            read: false
-          });
-        }
-      }
-      saveDB(db);
-      res.json(db.products[index]);
-    } else {
-      res.status(404).json({ error: "Product not found" });
-    }
+    res.status(404).json({ error: "Product not found" });
   }
 });
 
 app.delete("/api/products/:id", async (req, res) => {
   const { id } = req.params;
 
-  if (useMongo && mongoDb) {
-    try {
-      const result = await mongoDb.collection("products").deleteOne({ id });
-      if (result.deletedCount > 0) {
-        res.json({ success: true, message: "Product deleted successfully" });
-      } else {
-        res.status(404).json({ error: "Product not found" });
-      }
-    } catch (e) {
-      res.status(500).json({ error: "Failed to delete product" });
-    }
+  const db = loadDB();
+  const initialLength = db.products.length;
+  db.products = db.products.filter((p) => p.id !== id);
+  if (db.products.length < initialLength) {
+    saveDB(db);
+    res.json({ success: true, message: "Product deleted successfully" });
   } else {
-    const db = loadDB();
-    const initialLength = db.products.length;
-    db.products = db.products.filter((p) => p.id !== id);
-    if (db.products.length < initialLength) {
-      saveDB(db);
-      res.json({ success: true, message: "Product deleted successfully" });
-    } else {
-      res.status(404).json({ error: "Product not found" });
-    }
+    res.status(404).json({ error: "Product not found" });
   }
 });
 
@@ -634,17 +435,9 @@ app.post("/api/categories", async (req, res) => {
     id: "cat_" + Date.now(),
     ...req.body
   };
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("categories").insertOne(newCat);
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.categories.push(newCat);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.categories.push(newCat);
+  saveDB(db);
   res.status(201).json(newCat);
 });
 
@@ -653,40 +446,22 @@ app.put("/api/categories/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("categories").updateOne({ id }, { $set: updateData });
-      const updated = await mongoDb.collection("categories").findOne({ id });
-      res.json(updated);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update category" });
-    }
+  const db = loadDB();
+  const index = db.categories.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    db.categories[index] = { ...db.categories[index], ...updateData };
+    saveDB(db);
+    res.json(db.categories[index]);
   } else {
-    const db = loadDB();
-    const index = db.categories.findIndex((c) => c.id === id);
-    if (index !== -1) {
-      db.categories[index] = { ...db.categories[index], ...updateData };
-      saveDB(db);
-      res.json(db.categories[index]);
-    } else {
-      res.status(404).json({ error: "Category not found" });
-    }
+    res.status(404).json({ error: "Category not found" });
   }
 });
 
 app.delete("/api/categories/:id", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("categories").deleteOne({ id });
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.categories = db.categories.filter((c) => c.id !== id);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.categories = db.categories.filter((c) => c.id !== id);
+  saveDB(db);
   res.json({ success: true, message: "Category deleted" });
 });
 
@@ -696,17 +471,9 @@ app.post("/api/suppliers", async (req, res) => {
     id: "sup_" + Date.now(),
     ...req.body
   };
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("suppliers").insertOne(newSup);
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.suppliers.push(newSup);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.suppliers.push(newSup);
+  saveDB(db);
   res.status(201).json(newSup);
 });
 
@@ -715,40 +482,22 @@ app.put("/api/suppliers/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("suppliers").updateOne({ id }, { $set: updateData });
-      const updated = await mongoDb.collection("suppliers").findOne({ id });
-      res.json(updated);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update supplier" });
-    }
+  const db = loadDB();
+  const index = db.suppliers.findIndex((s) => s.id === id);
+  if (index !== -1) {
+    db.suppliers[index] = { ...db.suppliers[index], ...updateData };
+    saveDB(db);
+    res.json(db.suppliers[index]);
   } else {
-    const db = loadDB();
-    const index = db.suppliers.findIndex((s) => s.id === id);
-    if (index !== -1) {
-      db.suppliers[index] = { ...db.suppliers[index], ...updateData };
-      saveDB(db);
-      res.json(db.suppliers[index]);
-    } else {
-      res.status(404).json({ error: "Supplier not found" });
-    }
+    res.status(404).json({ error: "Supplier not found" });
   }
 });
 
 app.delete("/api/suppliers/:id", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("suppliers").deleteOne({ id });
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.suppliers = db.suppliers.filter((s) => s.id !== id);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.suppliers = db.suppliers.filter((s) => s.id !== id);
+  saveDB(db);
   res.json({ success: true, message: "Supplier deleted" });
 });
 
@@ -760,17 +509,9 @@ app.post("/api/customers", async (req, res) => {
     purchaseHistory: [],
     ...req.body
   };
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("customers").insertOne(newCust);
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.customers.push(newCust);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.customers.push(newCust);
+  saveDB(db);
   res.status(201).json(newCust);
 });
 
@@ -779,40 +520,22 @@ app.put("/api/customers/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("customers").updateOne({ id }, { $set: updateData });
-      const updated = await mongoDb.collection("customers").findOne({ id });
-      res.json(updated);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update customer" });
-    }
+  const db = loadDB();
+  const index = db.customers.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    db.customers[index] = { ...db.customers[index], ...updateData };
+    saveDB(db);
+    res.json(db.customers[index]);
   } else {
-    const db = loadDB();
-    const index = db.customers.findIndex((c) => c.id === id);
-    if (index !== -1) {
-      db.customers[index] = { ...db.customers[index], ...updateData };
-      saveDB(db);
-      res.json(db.customers[index]);
-    } else {
-      res.status(404).json({ error: "Customer not found" });
-    }
+    res.status(404).json({ error: "Customer not found" });
   }
 });
 
 app.delete("/api/customers/:id", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("customers").deleteOne({ id });
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.customers = db.customers.filter((c) => c.id !== id);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.customers = db.customers.filter((c) => c.id !== id);
+  saveDB(db);
   res.json({ success: true, message: "Customer deleted" });
 });
 
@@ -824,67 +547,33 @@ app.post("/api/purchases", async (req, res) => {
     ...req.body
   };
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("purchases").insertOne(newPurchase);
-      await mongoDb.collection("products").updateOne(
-        { id: newPurchase.productId },
-        { $inc: { stockQty: Number(newPurchase.qty) } }
-      );
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.purchases = db.purchases || [];
-    db.purchases.unshift(newPurchase);
-    const prodIndex = db.products.findIndex(p => p.id === newPurchase.productId);
-    if (prodIndex !== -1) {
-      db.products[prodIndex].stockQty = Number(db.products[prodIndex].stockQty) + Number(newPurchase.qty);
-    }
-    saveDB(db);
+  const db = loadDB();
+  db.purchases = db.purchases || [];
+  db.purchases.unshift(newPurchase);
+  const prodIndex = db.products.findIndex(p => p.id === newPurchase.productId);
+  if (prodIndex !== -1) {
+    db.products[prodIndex].stockQty = Number(db.products[prodIndex].stockQty) + Number(newPurchase.qty);
   }
+  saveDB(db);
   res.status(201).json(newPurchase);
 });
 
 app.delete("/api/purchases/:id", async (req, res) => {
   const { id } = req.params;
 
-  if (useMongo && mongoDb) {
-    try {
-      const purchase = await mongoDb.collection("purchases").findOne({ id });
-      if (purchase) {
-        await mongoDb.collection("products").updateOne(
-          { id: purchase.productId },
-          { $inc: { stockQty: -Number(purchase.qty) } }
-        );
-        const prod = await mongoDb.collection("products").findOne({ id: purchase.productId });
-        if (prod && prod.stockQty < 0) {
-          await mongoDb.collection("products").updateOne({ id: purchase.productId }, { $set: { stockQty: 0 } });
-        }
-        await mongoDb.collection("purchases").deleteOne({ id });
-        res.json({ success: true });
-      } else {
-        res.status(404).json({ error: "Purchase not found" });
-      }
-    } catch (e) {
-      res.status(500).json({ error: "Failed to delete purchase" });
+  const db = loadDB();
+  const pIndex = db.purchases.findIndex(p => p.id === id);
+  if (pIndex !== -1) {
+    const purchase = db.purchases[pIndex];
+    const prodIndex = db.products.findIndex(p => p.id === purchase.productId);
+    if (prodIndex !== -1) {
+      db.products[prodIndex].stockQty = Math.max(0, Number(db.products[prodIndex].stockQty) - Number(purchase.qty));
     }
+    db.purchases.splice(pIndex, 1);
+    saveDB(db);
+    res.json({ success: true });
   } else {
-    const db = loadDB();
-    const pIndex = db.purchases.findIndex(p => p.id === id);
-    if (pIndex !== -1) {
-      const purchase = db.purchases[pIndex];
-      const prodIndex = db.products.findIndex(p => p.id === purchase.productId);
-      if (prodIndex !== -1) {
-        db.products[prodIndex].stockQty = Math.max(0, Number(db.products[prodIndex].stockQty) - Number(purchase.qty));
-      }
-      db.purchases.splice(pIndex, 1);
-      saveDB(db);
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Purchase not found" });
-    }
+    res.status(404).json({ error: "Purchase not found" });
   }
 });
 
@@ -896,17 +585,9 @@ app.post("/api/users", async (req, res) => {
     activityLogs: ["Account registered"],
     ...req.body
   };
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("users").insertOne(newUser);
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.users.push(newUser);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.users.push(newUser);
+  saveDB(db);
   res.status(201).json(newUser);
 });
 
@@ -915,40 +596,22 @@ app.put("/api/users/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("users").updateOne({ id }, { $set: updateData });
-      const updated = await mongoDb.collection("users").findOne({ id });
-      res.json(updated);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to update user" });
-    }
+  const db = loadDB();
+  const index = db.users.findIndex((u) => u.id === id);
+  if (index !== -1) {
+    db.users[index] = { ...db.users[index], ...req.body };
+    saveDB(db);
+    res.json(db.users[index]);
   } else {
-    const db = loadDB();
-    const index = db.users.findIndex((u) => u.id === id);
-    if (index !== -1) {
-      db.users[index] = { ...db.users[index], ...req.body };
-      saveDB(db);
-      res.json(db.users[index]);
-    } else {
-      res.status(404).json({ error: "User not found" });
-    }
+    res.status(404).json({ error: "User not found" });
   }
 });
 
 app.delete("/api/users/:id", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("users").deleteOne({ id });
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.users = db.users.filter((u) => u.id !== id);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.users = db.users.filter((u) => u.id !== id);
+  saveDB(db);
   res.json({ success: true, message: "User deleted" });
 });
 
@@ -956,186 +619,87 @@ app.delete("/api/users/:id", async (req, res) => {
 app.post("/api/bills", async (req, res) => {
   const { billData } = req.body;
   
-  let newBill: any;
-  if (useMongo && mongoDb) {
-    try {
-      const count = await mongoDb.collection("bills").countDocuments();
-      newBill = {
-        id: "bill_" + Date.now(),
-        billNo: "INV-" + (count + 1001),
-        date: new Date().toISOString(),
-        ...billData
-      };
+  const db = loadDB();
+  const newBill = {
+    id: "bill_" + Date.now(),
+    billNo: "INV-" + (db.bills.length + 1001),
+    date: new Date().toISOString(),
+    ...billData
+  };
+  db.bills.unshift(newBill);
 
-      await mongoDb.collection("bills").insertOne(newBill);
-
-      // Decrement Stock quantities of checked-out products
-      for (const item of newBill.items) {
-        const prod = await mongoDb.collection("products").findOne({
-          $or: [{ id: item.productId }, { barcode: item.barcode }]
+  // Decrement Stock quantities of checked-out products
+  newBill.items.forEach((item: any) => {
+    const prodIndex = db.products.findIndex(p => p.id === item.productId || p.barcode === item.barcode);
+    if (prodIndex !== -1) {
+      db.products[prodIndex].stockQty = Math.max(0, db.products[prodIndex].stockQty - item.qty);
+      const prod = db.products[prodIndex];
+      if (prod.stockQty <= prod.lowStockThreshold) {
+        db.notifications.unshift({
+          id: "alert_stock_" + prod.id + "_" + Date.now(),
+          type: "warning",
+          title: "Low Stock Alert",
+          message: `Product: "${prod.name}" has only ${prod.stockQty} unit(s) remaining (threshold: ${prod.lowStockThreshold}).`,
+          date: new Date().toISOString(),
+          read: false
         });
-        if (prod) {
-          const newQty = Math.max(0, prod.stockQty - item.qty);
-          await mongoDb.collection("products").updateOne(
-            { id: prod.id },
-            { $set: { stockQty: newQty } }
-          );
-
-          if (newQty <= prod.lowStockThreshold) {
-            const newNotif = {
-              id: "alert_stock_" + prod.id + "_" + Date.now(),
-              type: "warning",
-              title: "Low Stock Alert",
-              message: `Product: "${prod.name}" has only ${newQty} unit(s) remaining (threshold: ${prod.lowStockThreshold}).`,
-              date: new Date().toISOString(),
-              read: false
-            };
-            await mongoDb.collection("notifications").insertOne(newNotif);
-          }
-        }
-      }
-
-      // Credit Customer loyalty points
-      if (newBill.customerId) {
-        const customer = await mongoDb.collection("customers").findOne({ id: newBill.customerId });
-        if (customer) {
-          const earned = Math.floor(newBill.grandTotal / 100);
-          const purchaseHistory = customer.purchaseHistory || [];
-          purchaseHistory.push(newBill.id);
-          await mongoDb.collection("customers").updateOne(
-            { id: newBill.customerId },
-            {
-              $set: {
-                loyaltyPoints: customer.loyaltyPoints + earned,
-                purchaseHistory
-              }
-            }
-          );
-        }
-      }
-
-      // Create audit activity log
-      const logId = "log_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
-      const auditLog = {
-        id: logId,
-        userId: newBill.cashierId || "system",
-        userEmail: newBill.cashierEmail || "cashier@supermarket.com",
-        fullname: newBill.cashierName || "System Cashier",
-        role: "Cashier",
-        action: `Created Invoice ${newBill.billNo} for total ₹${newBill.grandTotal.toFixed(2)}`,
-        timestamp: new Date().toISOString()
-      };
-      await mongoDb.collection("logs").insertOne(auditLog);
-
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    newBill = {
-      id: "bill_" + Date.now(),
-      billNo: "INV-" + (db.bills.length + 1001),
-      date: new Date().toISOString(),
-      ...billData
-    };
-    db.bills.unshift(newBill);
-
-    // Decrement Stock quantities of checked-out products
-    newBill.items.forEach((item: any) => {
-      const prodIndex = db.products.findIndex(p => p.id === item.productId || p.barcode === item.barcode);
-      if (prodIndex !== -1) {
-        db.products[prodIndex].stockQty = Math.max(0, db.products[prodIndex].stockQty - item.qty);
-        const prod = db.products[prodIndex];
-        if (prod.stockQty <= prod.lowStockThreshold) {
-          db.notifications.unshift({
-            id: "alert_stock_" + prod.id + "_" + Date.now(),
-            type: "warning",
-            title: "Low Stock Alert",
-            message: `Product: "${prod.name}" has only ${prod.stockQty} unit(s) remaining (threshold: ${prod.lowStockThreshold}).`,
-            date: new Date().toISOString(),
-            read: false
-          });
-        }
-      }
-    });
-
-    // Credit Customer loyalty points
-    if (newBill.customerId) {
-      const custIndex = db.customers.findIndex(c => c.id === newBill.customerId);
-      if (custIndex !== -1) {
-        const earned = Math.floor(newBill.grandTotal / 100);
-        db.customers[custIndex].loyaltyPoints += earned;
-        db.customers[custIndex].purchaseHistory = db.customers[custIndex].purchaseHistory || [];
-        db.customers[custIndex].purchaseHistory.push(newBill.id);
       }
     }
+  });
 
-    // Create audit activity log
-    const logId = "log_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
-    const auditLog = {
-      id: logId,
-      userId: newBill.cashierId || "system",
-      userEmail: newBill.cashierEmail || "cashier@supermarket.com",
-      fullname: newBill.cashierName || "System Cashier",
-      role: "Cashier",
-      action: `Created Invoice ${newBill.billNo} for total ₹${newBill.grandTotal.toFixed(2)}`,
-      timestamp: new Date().toISOString()
-    };
-    db.logs.unshift(auditLog);
-
-    saveDB(db);
+  // Credit Customer loyalty points
+  if (newBill.customerId) {
+    const custIndex = db.customers.findIndex(c => c.id === newBill.customerId);
+    if (custIndex !== -1) {
+      const earned = Math.floor(newBill.grandTotal / 100);
+      db.customers[custIndex].loyaltyPoints += earned;
+      db.customers[custIndex].purchaseHistory = db.customers[custIndex].purchaseHistory || [];
+      db.customers[custIndex].purchaseHistory.push(newBill.id);
+    }
   }
+
+  // Create audit activity log
+  const logId = "log_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+  const auditLog = {
+    id: logId,
+    userId: newBill.cashierId || "system",
+    userEmail: newBill.cashierEmail || "cashier@supermarket.com",
+    fullname: newBill.cashierName || "System Cashier",
+    role: "Cashier",
+    action: `Created Invoice ${newBill.billNo} for total ₹${newBill.grandTotal.toFixed(2)}`,
+    timestamp: new Date().toISOString()
+  };
+  db.logs.unshift(auditLog);
+
+  saveDB(db);
 
   res.status(201).json(newBill);
 });
 
 app.delete("/api/bills/:id", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("bills").deleteOne({ id });
-    } catch (e) {
-      console.error(e);
-    }
-  } else {
-    const db = loadDB();
-    db.bills = db.bills.filter((b) => b.id !== id);
-    saveDB(db);
-  }
+  const db = loadDB();
+  db.bills = db.bills.filter((b) => b.id !== id);
+  saveDB(db);
   res.json({ success: true, message: "Invoice deleted successfully" });
 });
 
 // Notifications PUT Mark Read
 app.put("/api/notifications/:id/read", async (req, res) => {
   const { id } = req.params;
-  if (useMongo && mongoDb) {
-    try {
-      await mongoDb.collection("notifications").updateOne({ id }, { $set: { read: true } });
-      const updated = await mongoDb.collection("notifications").findOne({ id });
-      res.json(updated);
-    } catch (e) {
-      res.status(500).json({ error: "Failed to mark read" });
-    }
+  const db = loadDB();
+  const index = db.notifications.findIndex((n) => n.id === id);
+  if (index !== -1) {
+    db.notifications[index].read = true;
+    saveDB(db);
+    res.json(db.notifications[index]);
   } else {
-    const db = loadDB();
-    const index = db.notifications.findIndex((n) => n.id === id);
-    if (index !== -1) {
-      db.notifications[index].read = true;
-      saveDB(db);
-      res.json(db.notifications[index]);
-    } else {
-      res.status(404).json({ error: "Notification not found" });
-    }
+    res.status(404).json({ error: "Notification not found" });
   }
 });
 
 // Serve UI Client
 async function startServer() {
-  // Initialize MongoDB connection in the background to prevent startup blocking or timeouts in hosted environments
-  initMongoDB().catch((err) => {
-    console.error("Error during background MongoDB initialization:", err);
-  });
-
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
