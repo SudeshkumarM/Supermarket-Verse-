@@ -1,0 +1,6 @@
+{
+  "name": "SK SuperMarket Verse",
+  "description": "Enterprise-grade web application with a professional public website, role-based terminal desks (Super Admin, Manager, Cashier), barcode/camera retail scanning, automated inventory reductions, and exportable financial reports.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
