@@ -249,27 +249,40 @@ const defaultDb = {
   }
 };
 
-// Ensure db.json file exists and is populated
+// Ensure db.json file exists and is populated with high-resilience memory fallback
+let memoryDb: typeof defaultDb | null = null;
+
 function loadDB(): typeof defaultDb {
+  if (memoryDb) {
+    return memoryDb;
+  }
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, "utf-8");
-      return JSON.parse(raw);
+      memoryDb = JSON.parse(raw);
+      return memoryDb!;
     } else {
-      fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), "utf-8");
-      return defaultDb;
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), "utf-8");
+      } catch (writeErr) {
+        console.error("Warning: DB_FILE write failed (possibly read-only filesystem). Falling back to dynamic in-memory storage:", writeErr);
+      }
+      memoryDb = JSON.parse(JSON.stringify(defaultDb)); // Deep copy
+      return memoryDb!;
     }
   } catch (error) {
-    console.error("Error reading DB file, using fallback state:", error);
-    return defaultDb;
+    console.error("Error reading DB file, using fallback in-memory state:", error);
+    memoryDb = JSON.parse(JSON.stringify(defaultDb)); // Deep copy
+    return memoryDb!;
   }
 }
 
 function saveDB(data: typeof defaultDb) {
+  memoryDb = data;
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (error) {
-    console.error("Error saving DB file:", error);
+    console.error("Error writing database to disk (ephemeral/read-only hosting):", error);
   }
 }
 
