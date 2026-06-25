@@ -281,13 +281,16 @@ let useMongo = false;
 
 async function initMongoDB() {
   const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    console.warn("MONGODB_URI is not set. Falling back to local JSON file storage (db.json).");
+  if (!uri || uri.includes("username:password") || uri.includes("<username>") || uri.includes("your-password") || uri.includes("cluster.mongodb.net/supermarket")) {
+    console.warn("MONGODB_URI is not set, contains default placeholders, or is unconfigured. Falling back to local JSON file storage (db.json).");
     useMongo = false;
     return false;
   }
   try {
-    mongoClient = new MongoClient(uri);
+    mongoClient = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 4000
+    });
     await mongoClient.connect();
     mongoDb = mongoClient.db();
     console.log("Connected to MongoDB successfully!");
