@@ -8,6 +8,7 @@ import {
   FileText, ShieldAlert, CheckCircle, Smartphone, Camera, Check, HelpCircle, Boxes 
 } from "lucide-react";
 import { User, Product, Category, Supplier, Customer, Bill, Notification, Log, Settings } from "../types";
+import { apiFetch } from "../clientDb";
 
 interface AdminPortalProps {
   currentUser: User;
@@ -53,6 +54,12 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
     type: "product" | "category" | "supplier" | "customer" | "user" | "bill_detail";
     action: "add" | "edit" | "view";
     data?: any;
+  } | null>(null);
+
+  // Custom Delete Confirmation Modal state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: string;
+    id: string;
   } | null>(null);
 
   // POS Checkout Lane States
@@ -293,7 +300,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
         [field]: value
       };
 
-      const res = await fetch("/api/settings", {
+      const res = await apiFetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -320,7 +327,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   const fetchDB = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/db");
+      const res = await apiFetch("/api/db");
       if (res.ok) {
         const data = await res.json();
         setDbState(data);
@@ -361,7 +368,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   // Notification Mark Read Handler
   const handleMarkNotificationRead = async (id: string) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read`, { method: "PUT" });
+      const res = await apiFetch(`/api/notifications/${id}/read`, { method: "PUT" });
       if (res.ok) {
         setDbState(prev => {
           if (!prev) return prev;
@@ -377,10 +384,13 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   };
 
   // CRUD Handler - Delete Entity
-  const handleDeleteEntity = async (type: string, id: string) => {
-    if (!confirm(`Are you absolutely sure you want to delete this ${type}?`)) return;
+  const handleDeleteEntity = (type: string, id: string) => {
+    setDeleteConfirm({ type, id });
+  };
+
+  const executeDeleteEntity = async (type: string, id: string) => {
     try {
-      const res = await fetch(`/api/${type}/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/${type}/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchDB();
         // Log action
@@ -388,6 +398,8 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
       }
     } catch (e) {
       alert("Error deleting record");
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -417,7 +429,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
       const url = action === "add" ? `/api/${pluralizeType(type)}` : `/api/${pluralizeType(type)}/${data.id}`;
       const method = action === "add" ? "POST" : "PUT";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -546,7 +558,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
     };
 
     try {
-      const res = await fetch("/api/bills", {
+      const res = await apiFetch("/api/bills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ billData })
@@ -3118,6 +3130,41 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
             </motion.div>
           </div>
         )}
+
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6 space-y-4"
+            >
+              <div className="flex items-center gap-3 text-rose-500">
+                <div className="p-2 bg-rose-500/10 rounded-xl">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <h4 className="font-display font-bold text-base text-white">Confirm Deletion</h4>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Are you absolutely sure you want to delete this <span className="font-bold text-rose-400 capitalize">{deleteConfirm.type}</span> record? This action is permanent and cannot be undone.
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl cursor-pointer text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => executeDeleteEntity(deleteConfirm.type, deleteConfirm.id)}
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl cursor-pointer text-xs shadow-lg shadow-rose-600/15"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
     </div>
@@ -3150,7 +3197,7 @@ function MyAccountSection({ currentUser, logs, onUpdateSuccess }: MyAccountProps
     setMessage("");
 
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, {
+      const res = await apiFetch(`/api/users/${currentUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3309,7 +3356,7 @@ interface PurchasesProps {
   purchases: any[];
   currentUser: User;
   onPurchaseSuccess: () => void;
-  handleDeleteEntity: (type: string, id: string) => Promise<void>;
+  handleDeleteEntity: (type: string, id: string) => any;
 }
 
 function PurchasesSection({ 
@@ -3389,7 +3436,7 @@ function PurchasesSection({
     const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
 
     try {
-      const res = await fetch("/api/purchases", {
+      const res = await apiFetch("/api/purchases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -4,6 +4,7 @@ import LoginPortal from "./components/LoginPortal";
 import AdminPortal from "./components/AdminPortal";
 import { User, DBState, Settings } from "./types";
 import { RefreshCw } from "lucide-react";
+import { apiFetch } from "./clientDb";
 
 type ViewMode = "PUBLIC" | "LOGIN" | "ADMIN_PORTAL";
 
@@ -15,7 +16,7 @@ export default function App() {
 
   const loadDBState = async () => {
     try {
-      const res = await fetch("/api/db");
+      const res = await apiFetch("/api/db");
       if (res.ok) {
         const data = await res.json();
         setDbState(data);

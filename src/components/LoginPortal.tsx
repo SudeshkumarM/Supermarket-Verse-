@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Store, ShieldCheck, Mail, Lock, ArrowLeft, Info, HelpCircle } from "lucide-react";
 import { User } from "../types";
+import { apiFetch } from "../clientDb";
 
 interface LoginPortalProps {
   onLoginSuccess: (user: User) => void;
@@ -23,7 +24,7 @@ export default function LoginPortal({ onLoginSuccess, onBackToPublic, storeName 
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await apiFetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })

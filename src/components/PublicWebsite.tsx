@@ -7,6 +7,7 @@ import {
   HelpCircle, UserPlus, Lock, Shield, Sparkles, BookOpen, User
 } from "lucide-react";
 import { Product, Category, Settings, User as UserType } from "../types";
+import { apiFetch } from "../clientDb";
 const tabBackgrounds: Record<string, string> = {
   home: "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1920&auto=format&fit=crop",
   about: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=1920&auto=format&fit=crop",
@@ -52,7 +53,7 @@ export default function PublicWebsite({
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regPhone, setRegPhone] = useState("");
-  const [regRole, setRegRole] = useState<"Admin" | "Manager" | "Cashier">("Cashier");
+  const [regRole, setRegRole] = useState<"Admin" | "Manager" | "Cashier">("Admin");
   const [regSuccess, setRegSuccess] = useState(false);
   const [regError, setRegError] = useState("");
   const [isRegSubmitting, setIsRegSubmitting] = useState(false);
@@ -129,7 +130,7 @@ export default function PublicWebsite({
     setIsRegSubmitting(true);
 
     try {
-      const res = await fetch("/api/users", {
+      const res = await apiFetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -174,7 +175,7 @@ export default function PublicWebsite({
     setIsLoginSubmitting(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await apiFetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginEmail, password: loginPassword })
