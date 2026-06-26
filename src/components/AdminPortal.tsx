@@ -579,7 +579,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
   const activeCustomersCount = customers.length;
   const activeStaffCount = users.length;
 
-  // Dynamic theme configurations mapping (Telegram Style)
+  // Dynamic theme configurations mapping (Classic Slate Style)
   const themeStyles = (() => {
     switch (settings?.theme) {
       case "telegram":
@@ -2128,7 +2128,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
 
                     {/* Delete Option */}
                     {/* Admin should NOT be allowed to delete themselves to avoid lockout */}
-                    {u.id !== currentUser.id && u.id !== "usr_admin" && u.id !== "usr_sudesh" ? (
+                    {u.id !== currentUser.id ? (
                       <button
                         onClick={() => handleDeleteEntity("users", u.id)}
                         className="p-2 bg-slate-800 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg transition-all cursor-pointer"
@@ -2145,14 +2145,14 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
           </div>
         )}
 
-        {/* CORPORATE STORE & PREMIUM TELEGRAM-LIKE SETTINGS (Admin Only) */}
+        {/* CORPORATE STORE & PREMIUM VISUAL SETTINGS (Admin Only) */}
         {activeTab === "settings" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* LEFT COLUMN: Profile Header Card & Chat Settings Preview */}
             <div className="space-y-6 lg:col-span-1">
               
-              {/* Telegram-style User Profile Card */}
+              {/* Slate-style User Profile Card */}
               <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} overflow-hidden relative`}>
                 {/* Background Ambient Glow */}
                 <div className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-blue-500/10 blur-xl pointer-events-none"></div>
@@ -2220,7 +2220,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
                   <div className="flex gap-2 items-start justify-end">
                     <div className="bg-blue-600/90 text-white p-2.5 rounded-2xl rounded-tr-none max-w-[85%] shadow-md">
                       <p className={`${fontSizeClass} ${fontFamilyClass} leading-relaxed`}>
-                        This looks exactly like Telegram premium! Absolute perfection. 🚀
+                        This looks incredibly clean and modern! Absolute perfection. 🚀
                       </p>
                       <span className="text-[8px] text-blue-200 block text-right mt-1">09:42 AM</span>
                     </div>
@@ -2238,7 +2238,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
             {/* RIGHT COLUMN: Settings Sections (Appearance & Corporate Details) */}
             <div className="space-y-6 lg:col-span-2">
               
-              {/* APPEARANCE CUSTOMIZER (Telegram Style) */}
+              {/* APPEARANCE CUSTOMIZER (Modern Slate Style) */}
               <div className={`p-6 rounded-2xl border ${themeStyles.panelClass} space-y-6`}>
                 <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                   <div>
@@ -2274,7 +2274,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
                   <label className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Theme Presets</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     
-                    {/* Telegram Classic */}
+                    {/* Classic Slate Theme */}
                     <button
                       onClick={() => handleAutoSaveSettings("theme", "telegram")}
                       className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer ${
@@ -2286,7 +2286,7 @@ export default function AdminPortal({ currentUser, onLogout, appSettings }: Admi
                       <div className="w-6 h-6 rounded-full bg-[#2b5278] border border-blue-400 flex items-center justify-center text-white">
                         {settings.theme === "telegram" && <Check className="w-3.5 h-3.5" />}
                       </div>
-                      <span className="text-[11px] font-semibold">Telegram Classic</span>
+                      <span className="text-[11px] font-semibold">Teal Slate</span>
                     </button>
 
                     {/* Midnight Black */}

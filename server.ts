@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import mongoose from "mongoose";
 
 
 const app = express();
@@ -252,6 +253,174 @@ const defaultDb = {
 // Ensure db.json file exists and is populated with high-resilience memory fallback
 let memoryDb: typeof defaultDb | null = null;
 
+// --- MONGODB INTEGRATION & SCHEMAS ---
+let isMongoConnected = false;
+
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  fullname: { type: String, required: true },
+  phone: { type: String },
+  role: { type: String, required: true },
+  profilePhoto: { type: String, default: "" },
+  createdAt: { type: String },
+  activityLogs: [{ type: String }],
+  password: { type: String, required: true }
+}, { strict: false });
+
+const categorySchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true }
+}, { strict: false });
+
+const supplierSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  phone: { type: String },
+  email: { type: String },
+  address: { type: String },
+  gstNo: { type: String }
+}, { strict: false });
+
+const productSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  barcode: { type: String },
+  qrCode: { type: String },
+  name: { type: String, required: true },
+  categoryId: { type: String },
+  brand: { type: String },
+  supplierId: { type: String },
+  purchasePrice: { type: Number },
+  sellingPrice: { type: Number },
+  gstRate: { type: Number },
+  expiryDate: { type: String },
+  stockQty: { type: Number },
+  lowStockThreshold: { type: Number }
+}, { strict: false });
+
+const customerSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  phone: { type: String },
+  email: { type: String },
+  type: { type: String, default: "Regular" },
+  loyaltyPoints: { type: Number, default: 0 },
+  purchaseHistory: [{ type: String }]
+}, { strict: false });
+
+const purchaseSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  productId: { type: String },
+  productName: { type: String },
+  supplierId: { type: String },
+  supplierName: { type: String },
+  purchasePrice: { type: Number },
+  qty: { type: Number },
+  totalAmount: { type: Number },
+  invoiceNo: { type: String },
+  date: { type: String }
+}, { strict: false });
+
+const billSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  billNo: { type: String },
+  date: { type: String },
+  customerId: { type: String },
+  customerName: { type: String },
+  cashierId: { type: String },
+  cashierName: { type: String },
+  cashierEmail: { type: String },
+  items: { type: Array, default: [] },
+  subTotal: { type: Number },
+  cgst: { type: Number },
+  sgst: { type: Number },
+  grandTotal: { type: Number },
+  paymentMethod: { type: String },
+  amountPaid: { type: Number },
+  changeAmount: { type: Number }
+}, { strict: false });
+
+const notificationSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  type: { type: String },
+  title: { type: String },
+  message: { type: String },
+  date: { type: String },
+  read: { type: Boolean, default: false }
+}, { strict: false });
+
+const logSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String },
+  userEmail: { type: String },
+  fullname: { type: String },
+  role: { type: String },
+  action: { type: String },
+  timestamp: { type: String }
+}, { strict: false });
+
+const settingsSchema = new mongoose.Schema({
+  storeName: { type: String },
+  storeAddress: { type: String },
+  gstNumber: { type: String },
+  logoUrl: { type: String },
+  theme: { type: String },
+  language: { type: String }
+}, { strict: false });
+
+const MongoModels = {
+  User: mongoose.models.User || mongoose.model("User", userSchema),
+  Category: mongoose.models.Category || mongoose.model("Category", categorySchema),
+  Supplier: mongoose.models.Supplier || mongoose.model("Supplier", supplierSchema),
+  Product: mongoose.models.Product || mongoose.model("Product", productSchema),
+  Customer: mongoose.models.Customer || mongoose.model("Customer", customerSchema),
+  Purchase: mongoose.models.Purchase || mongoose.model("Purchase", purchaseSchema),
+  Bill: mongoose.models.Bill || mongoose.model("Bill", billSchema),
+  Notification: mongoose.models.Notification || mongoose.model("Notification", notificationSchema),
+  Log: mongoose.models.Log || mongoose.model("Log", logSchema),
+  Settings: mongoose.models.Settings || mongoose.model("Settings", settingsSchema),
+};
+
+async function seedMongoIfNeeded() {
+  try {
+    const userCount = await MongoModels.User.countDocuments();
+    if (userCount === 0) {
+      console.log("MongoDB is empty. Seeding default database...");
+      await MongoModels.User.insertMany(defaultDb.users);
+      await MongoModels.Category.insertMany(defaultDb.categories);
+      await MongoModels.Supplier.insertMany(defaultDb.suppliers);
+      await MongoModels.Product.insertMany(defaultDb.products);
+      await MongoModels.Customer.insertMany(defaultDb.customers);
+      await MongoModels.Log.insertMany(defaultDb.logs);
+      await MongoModels.Notification.insertMany(defaultDb.notifications);
+      await MongoModels.Settings.create(defaultDb.settings);
+      console.log("MongoDB successfully seeded!");
+    }
+  } catch (err) {
+    console.error("Error seeding MongoDB:", err);
+  }
+}
+
+// Establish Connection
+const MONGODB_URI = process.env.MONGODB_URI;
+if (MONGODB_URI) {
+  console.log("Connecting to MongoDB via MONGODB_URI...");
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000
+  })
+  .then(async () => {
+    isMongoConnected = true;
+    console.log("Successfully connected to MongoDB!");
+    await seedMongoIfNeeded();
+  })
+  .catch((err) => {
+    console.error("MongoDB Connection Failed. Falling back to local JSON/Memory DB:", err.message);
+    isMongoConnected = false;
+  });
+} else {
+  console.log("No MONGODB_URI provided in environment. Storing database state locally in db.json / memory.");
+}
+
 function loadDB(): typeof defaultDb {
   if (memoryDb) {
     return memoryDb;
@@ -277,6 +446,82 @@ function loadDB(): typeof defaultDb {
   }
 }
 
+async function saveToMongo(data: typeof defaultDb) {
+  if (!isMongoConnected) return;
+  try {
+    // Sync Users
+    await Promise.all(data.users.map(async (u) => {
+      await MongoModels.User.findOneAndUpdate({ id: u.id } as any, u, { upsert: true } as any);
+    }));
+    const userIds = data.users.map(u => u.id);
+    await MongoModels.User.deleteMany({ id: { $nin: userIds } } as any);
+
+    // Sync Categories
+    await Promise.all(data.categories.map(async (c) => {
+      await MongoModels.Category.findOneAndUpdate({ id: c.id } as any, c, { upsert: true } as any);
+    }));
+    const categoryIds = data.categories.map(c => c.id);
+    await MongoModels.Category.deleteMany({ id: { $nin: categoryIds } } as any);
+
+    // Sync Suppliers
+    await Promise.all(data.suppliers.map(async (s) => {
+      await MongoModels.Supplier.findOneAndUpdate({ id: s.id } as any, s, { upsert: true } as any);
+    }));
+    const supplierIds = data.suppliers.map(s => s.id);
+    await MongoModels.Supplier.deleteMany({ id: { $nin: supplierIds } } as any);
+
+    // Sync Products
+    await Promise.all(data.products.map(async (p) => {
+      await MongoModels.Product.findOneAndUpdate({ id: p.id } as any, p, { upsert: true } as any);
+    }));
+    const productIds = data.products.map(p => p.id);
+    await MongoModels.Product.deleteMany({ id: { $nin: productIds } } as any);
+
+    // Sync Customers
+    await Promise.all(data.customers.map(async (c) => {
+      await MongoModels.Customer.findOneAndUpdate({ id: c.id } as any, c, { upsert: true } as any);
+    }));
+    const customerIds = data.customers.map(c => c.id);
+    await MongoModels.Customer.deleteMany({ id: { $nin: customerIds } } as any);
+
+    // Sync Purchases
+    if (data.purchases) {
+      await Promise.all(data.purchases.map(async (p) => {
+        await MongoModels.Purchase.findOneAndUpdate({ id: p.id } as any, p, { upsert: true } as any);
+      }));
+      const purchaseIds = data.purchases.map(p => p.id);
+      await MongoModels.Purchase.deleteMany({ id: { $nin: purchaseIds } } as any);
+    }
+
+    // Sync Bills
+    await Promise.all(data.bills.map(async (b) => {
+      await MongoModels.Bill.findOneAndUpdate({ id: b.id } as any, b, { upsert: true } as any);
+    }));
+    const billIds = data.bills.map(b => b.id);
+    await MongoModels.Bill.deleteMany({ id: { $nin: billIds } } as any);
+
+    // Sync Notifications
+    await Promise.all(data.notifications.map(async (n) => {
+      await MongoModels.Notification.findOneAndUpdate({ id: n.id } as any, n, { upsert: true } as any);
+    }));
+    const notificationIds = data.notifications.map(n => n.id);
+    await MongoModels.Notification.deleteMany({ id: { $nin: notificationIds } } as any);
+
+    // Sync Logs
+    await Promise.all(data.logs.map(async (l) => {
+      await MongoModels.Log.findOneAndUpdate({ id: l.id } as any, l, { upsert: true } as any);
+    }));
+    const logIds = data.logs.map(l => l.id);
+    await MongoModels.Log.deleteMany({ id: { $nin: logIds } } as any);
+
+    // Sync Settings
+    await MongoModels.Settings.findOneAndUpdate({} as any, data.settings, { upsert: true } as any);
+
+  } catch (err) {
+    console.error("Error synchronizing state to MongoDB:", err);
+  }
+}
+
 function saveDB(data: typeof defaultDb) {
   memoryDb = data;
   try {
@@ -284,9 +529,47 @@ function saveDB(data: typeof defaultDb) {
   } catch (error) {
     console.error("Error writing database to disk (ephemeral/read-only hosting):", error);
   }
+  
+  // Fire-and-forget sync to MongoDB asynchronously
+  if (isMongoConnected) {
+    saveToMongo(data).catch(err => {
+      console.error("Async MongoDB save failed:", err);
+    });
+  }
 }
 
-async function getFullDB() {
+async function getFullDB(): Promise<typeof defaultDb> {
+  if (isMongoConnected) {
+    try {
+      const [products, categories, suppliers, customers, users, bills, logs, notifications, purchases, settingsDoc] = await Promise.all([
+        MongoModels.Product.find().lean(),
+        MongoModels.Category.find().lean(),
+        MongoModels.Supplier.find().lean(),
+        MongoModels.Customer.find().lean(),
+        MongoModels.User.find().lean(),
+        MongoModels.Bill.find().lean(),
+        MongoModels.Log.find().lean(),
+        MongoModels.Notification.find().lean(),
+        MongoModels.Purchase.find().lean(),
+        MongoModels.Settings.findOne().lean()
+      ]);
+      return {
+        products: products as any,
+        categories: categories as any,
+        suppliers: suppliers as any,
+        customers: customers as any,
+        users: users as any,
+        bills: bills as any,
+        logs: logs as any,
+        notifications: notifications as any,
+        purchases: (purchases || []) as any,
+        settings: (settingsDoc || defaultDb.settings) as any
+      };
+    } catch (err) {
+      console.error("Failed to query MongoDB, falling back to local database:", err);
+      return loadDB();
+    }
+  }
   return loadDB();
 }
 
@@ -300,7 +583,7 @@ app.get("/api/db", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
   
-  const db = loadDB();
+  const db = await getFullDB();
   const user = db.users.find(
     (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
   );
@@ -366,7 +649,7 @@ app.get("/api/notifications", async (req, res) => {
 
 // PUT Settings
 app.put("/api/settings", async (req, res) => {
-  const db = loadDB();
+  const db = await getFullDB();
   db.settings = { ...db.settings, ...req.body };
   saveDB(db);
   res.json(db.settings);
@@ -379,7 +662,7 @@ app.post("/api/products", async (req, res) => {
     ...req.body
   };
 
-  const db = loadDB();
+  const db = await getFullDB();
   db.products.push(newProduct);
   if (Number(newProduct.stockQty) <= Number(newProduct.lowStockThreshold)) {
     db.notifications.unshift({
@@ -401,7 +684,7 @@ app.put("/api/products/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.products.findIndex((p) => p.id === id);
   if (index !== -1) {
     db.products[index] = { ...db.products[index], ...updateData };
@@ -431,7 +714,7 @@ app.put("/api/products/:id", async (req, res) => {
 app.delete("/api/products/:id", async (req, res) => {
   const { id } = req.params;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const initialLength = db.products.length;
   db.products = db.products.filter((p) => p.id !== id);
   if (db.products.length < initialLength) {
@@ -448,7 +731,7 @@ app.post("/api/categories", async (req, res) => {
     id: "cat_" + Date.now(),
     ...req.body
   };
-  const db = loadDB();
+  const db = await getFullDB();
   db.categories.push(newCat);
   saveDB(db);
   res.status(201).json(newCat);
@@ -459,7 +742,7 @@ app.put("/api/categories/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.categories.findIndex((c) => c.id === id);
   if (index !== -1) {
     db.categories[index] = { ...db.categories[index], ...updateData };
@@ -472,7 +755,7 @@ app.put("/api/categories/:id", async (req, res) => {
 
 app.delete("/api/categories/:id", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   db.categories = db.categories.filter((c) => c.id !== id);
   saveDB(db);
   res.json({ success: true, message: "Category deleted" });
@@ -484,7 +767,7 @@ app.post("/api/suppliers", async (req, res) => {
     id: "sup_" + Date.now(),
     ...req.body
   };
-  const db = loadDB();
+  const db = await getFullDB();
   db.suppliers.push(newSup);
   saveDB(db);
   res.status(201).json(newSup);
@@ -495,7 +778,7 @@ app.put("/api/suppliers/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.suppliers.findIndex((s) => s.id === id);
   if (index !== -1) {
     db.suppliers[index] = { ...db.suppliers[index], ...updateData };
@@ -508,7 +791,7 @@ app.put("/api/suppliers/:id", async (req, res) => {
 
 app.delete("/api/suppliers/:id", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   db.suppliers = db.suppliers.filter((s) => s.id !== id);
   saveDB(db);
   res.json({ success: true, message: "Supplier deleted" });
@@ -522,7 +805,7 @@ app.post("/api/customers", async (req, res) => {
     purchaseHistory: [],
     ...req.body
   };
-  const db = loadDB();
+  const db = await getFullDB();
   db.customers.push(newCust);
   saveDB(db);
   res.status(201).json(newCust);
@@ -533,7 +816,7 @@ app.put("/api/customers/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.customers.findIndex((c) => c.id === id);
   if (index !== -1) {
     db.customers[index] = { ...db.customers[index], ...updateData };
@@ -546,7 +829,7 @@ app.put("/api/customers/:id", async (req, res) => {
 
 app.delete("/api/customers/:id", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   db.customers = db.customers.filter((c) => c.id !== id);
   saveDB(db);
   res.json({ success: true, message: "Customer deleted" });
@@ -560,7 +843,7 @@ app.post("/api/purchases", async (req, res) => {
     ...req.body
   };
 
-  const db = loadDB();
+  const db = await getFullDB();
   db.purchases = db.purchases || [];
   db.purchases.unshift(newPurchase);
   const prodIndex = db.products.findIndex(p => p.id === newPurchase.productId);
@@ -574,7 +857,7 @@ app.post("/api/purchases", async (req, res) => {
 app.delete("/api/purchases/:id", async (req, res) => {
   const { id } = req.params;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const pIndex = db.purchases.findIndex(p => p.id === id);
   if (pIndex !== -1) {
     const purchase = db.purchases[pIndex];
@@ -598,7 +881,7 @@ app.post("/api/users", async (req, res) => {
     activityLogs: ["Account registered"],
     ...req.body
   };
-  const db = loadDB();
+  const db = await getFullDB();
   db.users.push(newUser);
   saveDB(db);
   res.status(201).json(newUser);
@@ -609,7 +892,7 @@ app.put("/api/users/:id", async (req, res) => {
   const updateData = { ...req.body };
   delete updateData._id;
 
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.users.findIndex((u) => u.id === id);
   if (index !== -1) {
     db.users[index] = { ...db.users[index], ...req.body };
@@ -622,7 +905,7 @@ app.put("/api/users/:id", async (req, res) => {
 
 app.delete("/api/users/:id", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   db.users = db.users.filter((u) => u.id !== id);
   saveDB(db);
   res.json({ success: true, message: "User deleted" });
@@ -632,7 +915,7 @@ app.delete("/api/users/:id", async (req, res) => {
 app.post("/api/bills", async (req, res) => {
   const { billData } = req.body;
   
-  const db = loadDB();
+  const db = await getFullDB();
   const newBill = {
     id: "bill_" + Date.now(),
     billNo: "INV-" + (db.bills.length + 1001),
@@ -691,7 +974,7 @@ app.post("/api/bills", async (req, res) => {
 
 app.delete("/api/bills/:id", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   db.bills = db.bills.filter((b) => b.id !== id);
   saveDB(db);
   res.json({ success: true, message: "Invoice deleted successfully" });
@@ -700,7 +983,7 @@ app.delete("/api/bills/:id", async (req, res) => {
 // Notifications PUT Mark Read
 app.put("/api/notifications/:id/read", async (req, res) => {
   const { id } = req.params;
-  const db = loadDB();
+  const db = await getFullDB();
   const index = db.notifications.findIndex((n) => n.id === id);
   if (index !== -1) {
     db.notifications[index].read = true;
